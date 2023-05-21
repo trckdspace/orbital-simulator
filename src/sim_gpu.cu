@@ -34,16 +34,17 @@ void every(int interval_milliseconds, const std::function<void(void)> &f)
 
 struct SatelliteSimulator_GPU
 {
-    const float radius_of_earth_km = 6378.1;
+    const float radius_of_earth_m = 6378100;
 
     SatelliteSimulator_GPU(size_t width, size_t height) : width(width),
                                                           height(height),
                                                           satellites(width, height),
                                                           positions(width, height)
     {
+        std::srand(time(0));
         std::random_device rd;
         std::mt19937 e2(rd());
-        std::uniform_real_distribution<> dist(0, 1);
+        std::uniform_real_distribution<float> dist(0, 1);
 
         Orbit_f *sats = satellites.host_ptr;
         for (uint64_t i = 0; i < width * height; i++)
@@ -56,11 +57,14 @@ struct SatelliteSimulator_GPU
             u.normalize();
             v.normalize();
 
-            double scaleU = dist(e2) * 300 + (radius_of_earth_km + 200);
-            double scaleV = dist(e2) * 300 + (radius_of_earth_km + 200);
+            float min_distance_meters = 100 * 1000;
+            float range_in_meters = 5000 * 1000;
+
+            double scaleU = dist(e2) * range_in_meters + (radius_of_earth_m + min_distance_meters);
+            // double scaleV = dist(e2) * range_in_meters + (radius_of_earth_m + min_distance_meters);
 
             u = u.array() * scaleU;
-            v = v.array() * scaleV;
+            v = v.array() * scaleU;
 
             sats[i].u0 = u(0);
             sats[i].u1 = u(1);
@@ -71,6 +75,8 @@ struct SatelliteSimulator_GPU
             sats[i].v2 = v(2);
 
             sats[i].t = dist(e2) * M_PI;
+
+            // velocity updated everytime distance is updated.
         }
 
         if (!satellites.copy_to_device())
@@ -97,8 +103,8 @@ struct SatelliteSimulator_GPU
 
     void draw()
     {
-        double scale = radius_of_earth_km;
-        glPointSize(3);
+        double scale = radius_of_earth_m;
+        glPointSize(20);
         glBegin(GL_POINTS);
 
         for (int i = 0; i < width * height; i++)
@@ -121,6 +127,7 @@ struct SatelliteSimulator_GPU
 
 int main(int argc, char **argv)
 {
+
     size_t width = atoi(argv[1]);
     size_t height = atoi(argv[2]);
 
@@ -146,7 +153,7 @@ int main(int argc, char **argv)
     every(10, [&]()
           {          
             stepTimer.tic();
-            sim.stepOne(0.01);
+            sim.stepOne(1);
             stepTimer.toc();
             stepTimer.print(); });
 

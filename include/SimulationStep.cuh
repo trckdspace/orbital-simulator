@@ -68,12 +68,23 @@ __global__ void step(
     Orbit_f &sat = satellites[idx];
     Result &res = positions[idx];
 
+    // https: // www.physicsclassroom.com/class/circles/Lesson-4/Mathematics-of-Satellite-Motion
+    // http: // www.physicsclassroom.com/Class/circles/u6l4b5.gif v = sqrt(G*M/R)
+    // gravitational constant *mass of Earth = 3.98601877 × 10^14 m^3 / s^2
+
     sat.t += delta_t;
 
-    float st = std::sin(sat.t);
-    float ct = std::cos(sat.t);
+    float st = std::sin(sat.t * sat.v);
+    float ct = std::cos(sat.t * sat.v);
 
-    res.x = st * sat.u0 + ct * sat.v0;
-    res.y = st * sat.u1 + ct * sat.v1;
-    res.z = st * sat.u2 + ct * sat.v2;
+    float px = st * sat.u0 + ct * sat.v0;
+    float py = st * sat.u1 + ct * sat.v1;
+    float pz = st * sat.u2 + ct * sat.v2;
+
+    float R_m = std::sqrt(px * px + py * py + pz * pz);
+    sat.v = (std::sqrt(3.98601877e14 / (R_m))) / R_m;
+
+    res.x = px;
+    res.y = py;
+    res.z = pz;
 }

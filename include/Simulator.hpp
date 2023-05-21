@@ -85,7 +85,7 @@ struct Simulation
     void draw()
     {
         double scale = radius_of_earth_km;
-        glPointSize(2);
+        glPointSize(10);
         glBegin(GL_POINTS);
 
         for (int i = 0; i < numberOfOrbits; i++)
