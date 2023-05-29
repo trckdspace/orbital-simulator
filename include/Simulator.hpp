@@ -34,6 +34,10 @@ struct Simulation
     {
         U = MatrixType::Random(DIM, numberOfOrbits);
         V = MatrixType::Random(DIM, numberOfOrbits);
+        C = MatrixType::Zero(DIM, numberOfOrbits);
+
+        // rate_multiplier = Eigen::MatrixXf::Zero(1, numberOfOrbits);
+
         t = MatrixType::Random(1, numberOfOrbits);
         state = MatrixType::Zero(DIM, numberOfOrbits);
 
@@ -42,43 +46,44 @@ struct Simulation
 
             Eigen::Matrix<float, 3, 1> u = U.col(i).topRows(3);
             Eigen::Matrix<float, 3, 1> v = V.col(i).topRows(3);
+            float e = std::abs(U(0, i));
+            // HEO have eccentricy of 0.74 See: https: // en.wikipedia.org/wiki/Molniya_orbit
+
+            if (e > 0.74)
+                e = 0.74;
 
             u.normalize();
             v.normalize();
 
-            // v(0) = 1;
-            // v(1) = 0;
-            // v(2) = 0;
-
-            // u(0) = 0;
-            // u(1) = 0;
-            // u(2) = 1;
-
-            // std::cerr << u.norm() << " " << v.norm() << std::endl;
-
-            // std::cerr << u.rows() << "x" << u.cols() << " " << U.col(i).rows() << "x" << U.col(i).cols() << std::endl;
-
             Eigen::Matrix<float, 3, 1> v_n = u.cross(v);
 
-            float scale = (float(rand() % 500) + (radius_of_earth_km + 300.f));
+            v_n.normalize();
 
-            u *= scale;
-            v_n *= scale;
+            float b = (float(rand() % 5000) + (radius_of_earth_km + 1500.f));
+            float a = std::sqrt((b * b) / (1 - (e * e)));
+            float f = std::sqrt(a * a - b * b);
 
-            // std::cerr << scale << std::endl;
+            U.col(i).topRows(3) = a * u;
+            V.col(i).topRows(3) = a * v_n;
+            C.col(i).topRows(3) = -f * u;
 
-            U.col(i).topRows(3) = u;
-            V.col(i).topRows(3) = v_n;
+            // rate_multiplier(i) = b / sqrt(a / MEU);
 
             // std::cerr << U.col(i).transpose() << " " << V.col(i).transpose() << std::endl;
         }
         colors = MatrixType::Random(DIM, numberOfOrbits);
+
+        // state = C.array() + Eigen::cos(t.array()).replicate(DIM, 1) * U.array() +
+        //         Eigen::sin(t.array()).replicate(DIM, 1) * V.array();
     }
 
     void propagate(double dt)
     {
-        t = t.array() + dt;
-        state = Eigen::cos(t.array()).replicate(DIM, 1) * U.array() +
+        // t = t.array();
+
+        t = t.array() + 0.01 * dt; //* rate_multiplier.array()/(state-C).colwise().squaredNorm().array();
+
+        state = C.array() + Eigen::cos(t.array()).replicate(DIM, 1) * U.array() +
                 Eigen::sin(t.array()).replicate(DIM, 1) * V.array();
     }
 
@@ -86,19 +91,30 @@ struct Simulation
     {
         double scale = radius_of_earth_km;
         glPointSize(10);
-        glBegin(GL_POINTS);
 
         for (int i = 0; i < numberOfOrbits; i++)
         {
             const Eigen::Matrix<float, 3, 1> &pos = state.col(i);
             const Eigen::Matrix<float, 3, 1> &color = colors.col(i);
+            const Eigen::Matrix<float, 3, 1> &c = C.col(i);
             glColor3f(color(0), color(1), color(2));
+
+            glBegin(GL_POINTS);
             glVertex3f(pos(0) / scale, pos(1) / scale, pos(2) / scale);
+            glVertex3f(c(0) / scale, c(1) / scale, c(2) / scale);
+            glEnd();
+
+            glBegin(GL_LINE_STRIP);
+            glVertex3f(pos(0) / scale, pos(1) / scale, pos(2) / scale);
+            glVertex3f(0, 0, 0);
+            glEnd();
         }
-        glEnd();
     }
 
     int numberOfOrbits = 100;
-    Eigen::Matrix<float, DIM, -1> U, V, state, colors;
+    Eigen::Matrix<float, DIM, -1> U, V, C, state, colors;
+    Eigen::Matrix<float, 1, -1> rate_multiplier;
     Eigen::Matrix<float, 1, -1> t;
+
+    const double MEU = 3.986004418e5; // km3s-2
 };

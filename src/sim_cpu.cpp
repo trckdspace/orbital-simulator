@@ -30,7 +30,7 @@ int main(int argc, char **argv)
     every(10, [&]()
           {          
             stepTimer.tic();
-            sim.propagate(0.01);
+            sim.propagate(1);
             stepTimer.toc();
             stepTimer.print(); });
 
