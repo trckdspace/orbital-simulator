@@ -43,10 +43,11 @@ int main(int argc, char **argv)
 
     every(10, [&]()
           {
-        stepTimer.tic();
-        sim.propagate(0.1);
-        stepTimer.toc();
-        stepTimer.print(); });
+              stepTimer.tic();
+              sim.propagate(0.1);
+              stepTimer.toc();
+              // stepTimer.print();
+          });
 
     const int UI_WIDTH = 20 * pangolin::default_font().MaxWidth();
     pangolin::CreatePanel("ui")
@@ -66,7 +67,7 @@ int main(int argc, char **argv)
         sim.draw_lines = draw_lines;
         sim.speed = speed;
 
-                sim.draw(point_size, num_satellites);
+        sim.draw(point_size, num_satellites);
         //  Render OpenGL Cube
         //  pangolin::glDrawColouredCube();
         glColor3f(0.5, 0.5, 0.5);

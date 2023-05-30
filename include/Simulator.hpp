@@ -84,7 +84,32 @@ struct Simulation
         state = C + Eigen::cos(t).replicate(DIM, 1) * U + Eigen::sin(t).replicate(DIM, 1) * V;
 
         CollisionDetector m;
-        m.run(state);
+        std::vector<std::pair<int, int>> collisions;
+        if (m.run(state, collisions))
+        {
+            oh_no_these_collided.clear();
+            for (auto c : collisions)
+            {
+                std::cerr << c.first << " - " << c.second << std::endl;
+
+                std::cerr << state.col(c.first).transpose() << std::endl;
+                std::cerr << state.col(c.second).transpose() << std::endl;
+
+                std::cerr << " U " << U.col(c.first).transpose() << std::endl
+                          << " V " << V.col(c.first).transpose() << std::endl
+                          << " C " << C.col(c.first).transpose() << std::endl
+                          << " t " << t.col(c.first) << std::endl;
+
+                std::cerr << " U " << U.col(c.second).transpose() << std::endl
+                          << " V " << V.col(c.second).transpose() << std::endl
+                          << " C " << C.col(c.second).transpose() << std::endl
+                          << " t " << t.col(c.second) << std::endl;
+
+                oh_no_these_collided.push_back(c.first);
+                oh_no_these_collided.push_back(c.second);
+            }
+            std::cerr << "//////////////////" << std::endl;
+        }
 
         // std::cerr << state.rowwise().minCoeff() << std::endl;
         // std::cerr << state.rowwise().maxCoeff() << std::endl;
@@ -128,6 +153,25 @@ struct Simulation
                 // std::cerr << "INFO: (r1+r2)/2  " << ((pos).norm() + (pos - 2 * c).norm()) / 2. << std::endl;
             }
         }
+
+        for (auto i : oh_no_these_collided)
+        {
+            glPointSize(10);
+
+            glColor3f(1, 0, 0);
+            glBegin(GL_POINTS);
+
+            for (float t = 0; t < 2 * M_PI; t += 0.1)
+            {
+                Eigen::ArrayXf _t = Eigen::ArrayXf::Ones(1, 1);
+                Eigen::Vector3f v = C.col(i) + Eigen::cos(_t * t).replicate(DIM, 1) * U.col(i) + Eigen::sin(_t * t).replicate(DIM, 1) * V.col(i);
+                glVertex3f(v(0) / scale, v(1) / scale, v(2) / scale);
+            }
+            const Eigen::Matrix<float, 3, 1> &pos = state.col(i);
+            glColor3f(0, 0, 1);
+            glVertex3f(pos(0) / scale, pos(1) / scale, pos(2) / scale);
+            glEnd();
+        }
     }
 
     int numberOfOrbits = 1;
@@ -139,4 +183,6 @@ struct Simulation
     const double MEU = 3.986004418e5; // km3s-2
     bool draw_lines = false;
     float speed = 1;
+
+    std::vector<int> oh_no_these_collided;
 };
