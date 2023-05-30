@@ -57,8 +57,9 @@ struct Simulation
 
             v_n.normalize();
 
-            float b = (float(rand() % 2000) + (radius_of_earth_km + 160.f));
-            float a = std::sqrt((b * b) / (1 - (e * e)));
+            float perigee = (float(rand() % 2000) + (radius_of_earth_km + 160.f));
+            float a = perigee / (1 - e);        // std::sqrt((b * b) / (1 - (e * e)));
+            float b = a * std::sqrt(1 - e * e); // std::sqrt((b * b) / (1 - (e * e)));
             float f = std::sqrt(a * a - b * b);
 
             U.col(i).topRows(3) = a * u;
