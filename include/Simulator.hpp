@@ -118,26 +118,40 @@ struct Simulation
     void draw(int point_size, int count)
     {
         double scale = radius_of_earth_km;
+
+        Eigen::ArrayXXf state_scaled = state / scale;
+
+        glEnableClientState(GL_VERTEX_ARRAY);
+        glEnableClientState(GL_COLOR_ARRAY);
+        glVertexPointer(3, GL_FLOAT, sizeof(float) * 3, (float *)state_scaled.data());
+        glColorPointer(3, GL_FLOAT, sizeof(float) * 3, colors.data());
         glPointSize(point_size);
+        glDrawArrays(GL_POINTS, 0, std::min(count, (int)state.cols()));
+        glDisableClientState(GL_VERTEX_ARRAY);
+        glDisableClientState(GL_COLOR_ARRAY);
 
-        for (int i = 0; i < std::min(count, numberOfOrbits); i++)
+        // glFlush();
+        //  glutSwapBuffers();
+
+        if (draw_lines)
         {
-            const Eigen::Matrix<float, 3, 1> &pos = state.col(i);
-            const Eigen::Matrix<float, 3, 1> &color = colors.col(i);
-            const Eigen::Matrix<float, 3, 1> &c = C.col(i);
-            glColor3f(color(0), color(1), color(2));
-            // glColor3f(pos(0) / scale, pos(1) / scale, pos(2) / scale);
-
-            glBegin(GL_POINTS);
-            glVertex3f(pos(0) / scale, pos(1) / scale, pos(2) / scale);
-
-            // if (draw_lines)
-            //     glVertex3f(c(0) / scale, c(1) / scale, c(2) / scale);
-
-            glEnd();
-
-            if (draw_lines)
+            for (int i = 0; i < std::min(count, numberOfOrbits); i++)
             {
+                const Eigen::Matrix<float, 3, 1> &pos = state.col(i);
+                const Eigen::Matrix<float, 3, 1> &color = colors.col(i);
+                const Eigen::Matrix<float, 3, 1> &c = C.col(i);
+
+                // // glColor3f(pos(0) / scale, pos(1) / scale, pos(2) / scale);
+
+                // glBegin(GL_POINTS);
+                // glVertex3f(pos(0) / scale, pos(1) / scale, pos(2) / scale);
+
+                // // if (draw_lines)
+                // //     glVertex3f(c(0) / scale, c(1) / scale, c(2) / scale);
+
+                // glEnd();
+                glColor3f(color(0), color(1), color(2));
+
                 glBegin(GL_LINE_STRIP);
                 glVertex3f(pos(0) / scale, pos(1) / scale, pos(2) / scale);
                 glVertex3f(0, 0, 0);
