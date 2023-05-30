@@ -34,23 +34,21 @@ struct Simulation
     {
         U = MatrixType::Random(DIM, numberOfOrbits);
         V = MatrixType::Random(DIM, numberOfOrbits);
+        t = MatrixType::Random(001, numberOfOrbits) * 2 * M_PI;
         C = MatrixType::Zero(DIM, numberOfOrbits);
 
-        // rate_multiplier = Eigen::MatrixXf::Zero(1, numberOfOrbits);
-
-        t = MatrixType::Random(1, numberOfOrbits);
         state = MatrixType::Zero(DIM, numberOfOrbits);
+        rate_multiplier = MatrixType::Zero(1, numberOfOrbits);
 
         for (int i = 0; i < numberOfOrbits; i++)
         {
-
             Eigen::Matrix<float, 3, 1> u = U.col(i).topRows(3);
             Eigen::Matrix<float, 3, 1> v = V.col(i).topRows(3);
+
             float e = std::abs(U(0, i));
             // HEO have eccentricy of 0.74 See: https: // en.wikipedia.org/wiki/Molniya_orbit
 
-            if (e > 0.74)
-                e = 0.74;
+            e = std::min(e, 0.74f);
 
             u.normalize();
             v.normalize();
@@ -59,29 +57,31 @@ struct Simulation
 
             v_n.normalize();
 
-            float b = (float(rand() % 5000) + (radius_of_earth_km + 1500.f));
+            float b = (float(rand() % 2000) + (radius_of_earth_km + 160.f));
             float a = std::sqrt((b * b) / (1 - (e * e)));
             float f = std::sqrt(a * a - b * b);
 
             U.col(i).topRows(3) = a * u;
-            V.col(i).topRows(3) = a * v_n;
-            C.col(i).topRows(3) = -f * u;
+            V.col(i).topRows(3) = b * v_n;
+            C.col(i).topRows(3) = f * u;
 
-            // rate_multiplier(i) = b / sqrt(a / MEU);
+            rate_multiplier(i) = b / sqrt(a / MEU);
+
+            // std::cerr << "INFO: " << a << " " << b << std::endl;
 
             // std::cerr << U.col(i).transpose() << " " << V.col(i).transpose() << std::endl;
         }
         colors = MatrixType::Random(DIM, numberOfOrbits);
 
-        // state = C.array() + Eigen::cos(t.array()).replicate(DIM, 1) * U.array() +
-        //         Eigen::sin(t.array()).replicate(DIM, 1) * V.array();
+        state = C.array() + Eigen::cos(t.array()).replicate(DIM, 1) * U.array() +
+                Eigen::sin(t.array()).replicate(DIM, 1) * V.array();
     }
 
     void propagate(double dt)
     {
         // t = t.array();
 
-        t = t.array() + 0.01 * dt; //* rate_multiplier.array()/(state-C).colwise().squaredNorm().array();
+        t = t.array() + dt * rate_multiplier.array() / (state).colwise().squaredNorm().array();
 
         state = C.array() + Eigen::cos(t.array()).replicate(DIM, 1) * U.array() +
                 Eigen::sin(t.array()).replicate(DIM, 1) * V.array();
@@ -98,16 +98,32 @@ struct Simulation
             const Eigen::Matrix<float, 3, 1> &color = colors.col(i);
             const Eigen::Matrix<float, 3, 1> &c = C.col(i);
             glColor3f(color(0), color(1), color(2));
+            // glColor3f(pos(0) / scale, pos(1) / scale, pos(2) / scale);
 
             glBegin(GL_POINTS);
             glVertex3f(pos(0) / scale, pos(1) / scale, pos(2) / scale);
-            glVertex3f(c(0) / scale, c(1) / scale, c(2) / scale);
+
+            // if (draw_lines)
+            //     glVertex3f(c(0) / scale, c(1) / scale, c(2) / scale);
+
             glEnd();
 
-            glBegin(GL_LINE_STRIP);
-            glVertex3f(pos(0) / scale, pos(1) / scale, pos(2) / scale);
-            glVertex3f(0, 0, 0);
-            glEnd();
+            if (draw_lines)
+            {
+                glBegin(GL_LINE_STRIP);
+                glVertex3f(pos(0) / scale, pos(1) / scale, pos(2) / scale);
+                glVertex3f(0, 0, 0);
+
+                glVertex3f(0, 0, 0);
+                glVertex3f(2 * c(0) / scale, 2 * c(1) / scale, 2 * c(2) / scale);
+
+                glVertex3f(pos(0) / scale, pos(1) / scale, pos(2) / scale);
+                glVertex3f(2 * c(0) / scale, 2 * c(1) / scale, 2 * c(2) / scale);
+
+                glEnd();
+
+                // std::cerr << "INFO: (r1+r2)/2  " << ((pos).norm() + (pos - 2 * c).norm()) / 2. << std::endl;
+            }
         }
     }
 
@@ -117,4 +133,5 @@ struct Simulation
     Eigen::Matrix<float, 1, -1> t;
 
     const double MEU = 3.986004418e5; // km3s-2
+    bool draw_lines = false;
 };
