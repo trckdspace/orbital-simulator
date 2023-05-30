@@ -9,6 +9,8 @@
 #include <thread>
 #include <iostream>
 
+#include <CollisionMap.hpp>
+
 void every(int interval_milliseconds, const std::function<void(void)> &f)
 {
     std::thread([f, interval_milliseconds]()
@@ -28,7 +30,7 @@ struct Simulation
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
     const float radius_of_earth_km = 6378.1;
 
-    typedef Eigen::MatrixXf MatrixType;
+    typedef Eigen::Array<float, -1, -1> MatrixType;
 
     Simulation(int orbit_count = 100) : numberOfOrbits(orbit_count)
     {
@@ -47,7 +49,6 @@ struct Simulation
 
             float e = std::abs(U(0, i));
             // HEO have eccentricy of 0.74 See: https: // en.wikipedia.org/wiki/Molniya_orbit
-
             e = std::min(e, 0.74f);
 
             u.normalize();
@@ -57,7 +58,7 @@ struct Simulation
 
             v_n.normalize();
 
-            float perigee = (float(rand() % 2000) + (radius_of_earth_km + 160.f));
+            float perigee = (float(rand() % 500) + (radius_of_earth_km + 160.f));
             float a = perigee / (1 - e);        // std::sqrt((b * b) / (1 - (e * e)));
             float b = a * std::sqrt(1 - e * e); // std::sqrt((b * b) / (1 - (e * e)));
             float f = std::sqrt(a * a - b * b);
@@ -74,26 +75,27 @@ struct Simulation
         }
         colors = MatrixType::Random(DIM, numberOfOrbits);
 
-        state = C.array() + Eigen::cos(t.array()).replicate(DIM, 1) * U.array() +
-                Eigen::sin(t.array()).replicate(DIM, 1) * V.array();
+        state = C + Eigen::cos(t).replicate(DIM, 1) * U + Eigen::sin(t).replicate(DIM, 1) * V;
     }
 
     void propagate(double dt)
     {
-        // t = t.array();
+        t += speed * dt * rate_multiplier / (state).colwise().squaredNorm().array();
+        state = C + Eigen::cos(t).replicate(DIM, 1) * U + Eigen::sin(t).replicate(DIM, 1) * V;
 
-        t = t.array() + dt * rate_multiplier.array() / (state).colwise().squaredNorm().array();
+        CollisionDetector m;
+        m.run(state);
 
-        state = C.array() + Eigen::cos(t.array()).replicate(DIM, 1) * U.array() +
-                Eigen::sin(t.array()).replicate(DIM, 1) * V.array();
+        // std::cerr << state.rowwise().minCoeff() << std::endl;
+        // std::cerr << state.rowwise().maxCoeff() << std::endl;
     }
 
-    void draw()
+    void draw(int point_size, int count)
     {
         double scale = radius_of_earth_km;
-        glPointSize(10);
+        glPointSize(point_size);
 
-        for (int i = 0; i < numberOfOrbits; i++)
+        for (int i = 0; i < std::min(count, numberOfOrbits); i++)
         {
             const Eigen::Matrix<float, 3, 1> &pos = state.col(i);
             const Eigen::Matrix<float, 3, 1> &color = colors.col(i);
@@ -128,11 +130,13 @@ struct Simulation
         }
     }
 
-    int numberOfOrbits = 100;
-    Eigen::Matrix<float, DIM, -1> U, V, C, state, colors;
-    Eigen::Matrix<float, 1, -1> rate_multiplier;
-    Eigen::Matrix<float, 1, -1> t;
+    int numberOfOrbits = 1;
+
+    MatrixType U, V, C, state, colors;
+    Eigen::Array<float, 1, -1> rate_multiplier;
+    Eigen::Array<float, 1, -1> t;
 
     const double MEU = 3.986004418e5; // km3s-2
     bool draw_lines = false;
+    float speed = 1;
 };
