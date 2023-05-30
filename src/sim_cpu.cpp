@@ -28,18 +28,18 @@ int main(int argc, char **argv)
 
     Timer stepTimer("stepTimer");
     every(10, [&]()
-          {          
-            stepTimer.tic();
-            sim.propagate(0.01);
-            stepTimer.toc();
-            stepTimer.print(); });
+          {
+              stepTimer.tic();
+              sim.propagate(1);
+              stepTimer.toc();
+              // stepTimer.print();
+          });
 
     while (!pangolin::ShouldQuit())
     {
         // Clear screen and activate view to render into
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         d_cam.Activate(s_cam);
-
         sim.draw();
         // Render OpenGL Cube
         // pangolin::glDrawColouredCube();
