@@ -9,30 +9,19 @@
 #include <thread>
 #include <iostream>
 
+#include <SimulatorBase.hpp>
+
 #include <CollisionMap.hpp>
 
-void every(int interval_milliseconds, const std::function<void(void)> &f)
-{
-    std::thread([f, interval_milliseconds]()
-                { 
-    while (true)
-    {
-        auto x = std::chrono::steady_clock::now() + std::chrono::milliseconds(interval_milliseconds);
-        f();
-        std::this_thread::sleep_until(x);
-    } })
-        .detach();
-}
-
 template <int DIM = 3>
-struct Simulation
+struct Simulation : BaseSimulator
 {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
     const float radius_of_earth_km = 6378.1;
 
     typedef Eigen::Array<float, -1, -1> MatrixType;
 
-    Simulation(int orbit_count = 100) : numberOfOrbits(orbit_count)
+    Simulation(int orbit_count = 100) : BaseSimulator(orbit_count)
     {
         U = MatrixType::Random(DIM, numberOfOrbits);
         V = MatrixType::Random(DIM, numberOfOrbits);
@@ -78,7 +67,7 @@ struct Simulation
         state = C + Eigen::cos(t).replicate(DIM, 1) * U + Eigen::sin(t).replicate(DIM, 1) * V;
     }
 
-    void propagate(double dt)
+    virtual void propagate(double dt)
     {
         t += speed * dt * rate_multiplier / (state).colwise().squaredNorm().array();
         state = C + Eigen::cos(t).replicate(DIM, 1) * U + Eigen::sin(t).replicate(DIM, 1) * V;
@@ -115,7 +104,7 @@ struct Simulation
         // std::cerr << state.rowwise().maxCoeff() << std::endl;
     }
 
-    void draw(int point_size, int count)
+    virtual void draw(int point_size, int count)
     {
         double scale = radius_of_earth_km;
 
@@ -188,15 +177,11 @@ struct Simulation
         }
     }
 
-    int numberOfOrbits = 1;
-
     MatrixType U, V, C, state, colors;
     Eigen::Array<float, 1, -1> rate_multiplier;
     Eigen::Array<float, 1, -1> t;
 
     const double MEU = 3.986004418e5; // km3s-2
-    bool draw_lines = false;
-    float speed = 1;
 
     std::vector<int> oh_no_these_collided;
 };

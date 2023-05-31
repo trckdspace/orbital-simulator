@@ -17,26 +17,18 @@
 #include <SimulationStep.cuh>
 
 #include <Timer.hpp>
+#include <SimulatorBase.hpp>
+#include <Viewer.hpp>
+
 // #include <opencv2/opencv.hpp>
 
-void every(int interval_milliseconds, const std::function<void(void)> &f)
+struct SatelliteSimulator_GPU : BaseSimulator
 {
-    std::thread([f, interval_milliseconds]()
-                { 
-    while (true)
-    {
-        auto x = std::chrono::steady_clock::now() + std::chrono::milliseconds(interval_milliseconds);
-        f();
-        std::this_thread::sleep_until(x);
-    } })
-        .detach();
-}
+    const double radius_of_earth_km = 6378.1;
+    const double MEU = 3.986004418e5;
 
-struct SatelliteSimulator_GPU
-{
-    const float radius_of_earth_m = 6378100;
-
-    SatelliteSimulator_GPU(size_t width, size_t height) : width(width),
+    SatelliteSimulator_GPU(size_t width, size_t height) : BaseSimulator(width * height),
+                                                          width(width),
                                                           height(height),
                                                           satellites(width, height),
                                                           positions(width, height)
@@ -46,25 +38,32 @@ struct SatelliteSimulator_GPU
         std::mt19937 e2(rd());
         std::uniform_real_distribution<float> dist(0, 1);
 
-        Orbit_f *sats = satellites.host_ptr;
+        Orbit *sats = satellites.host_ptr;
+        Position *state = positions.host_ptr;
+
         for (uint64_t i = 0; i < width * height; i++)
         {
             Eigen::Vector3d u = Eigen::Vector3d::Random();
-
             Eigen::Vector3d v = u.cross(Eigen::Vector3d::Random());
-            // Eigen::Vector3d v = Eigen::Vector3d::Random();
+
+            float e = std::abs(u(0));
+            // HEO have eccentricy of 0.74 See: https: // en.wikipedia.org/wiki/Molniya_orbit
+            e = std::min(e, 0.74f);
 
             u.normalize();
             v.normalize();
 
-            float min_distance_meters = 100 * 1000;
-            float range_in_meters = 5000 * 1000;
+            float perigee = (float(rand() % 500) + (radius_of_earth_km + 160.f));
+            float a = perigee / (1 - e);        // std::sqrt((b * b) / (1 - (e * e)));
+            float b = a * std::sqrt(1 - e * e); // std::sqrt((b * b) / (1 - (e * e)));
+            float f = std::sqrt(a * a - b * b);
 
-            double scaleU = dist(e2) * range_in_meters + (radius_of_earth_m + min_distance_meters);
-            // double scaleV = dist(e2) * range_in_meters + (radius_of_earth_m + min_distance_meters);
+            Eigen::Vector3d focus = f * u;
 
-            u = u.array() * scaleU;
-            v = v.array() * scaleU;
+            u *= a;
+            v *= b;
+
+            sats[i].rate_multiplier = b / std::sqrt(a / MEU);
 
             sats[i].u0 = u(0);
             sats[i].u1 = u(1);
@@ -74,7 +73,13 @@ struct SatelliteSimulator_GPU
             sats[i].v1 = v(1);
             sats[i].v2 = v(2);
 
-            sats[i].t = dist(e2) * M_PI;
+            sats[i].c0 = focus(0);
+            sats[i].c1 = focus(1);
+            sats[i].c2 = focus(2);
+
+            sats[i].t = u(0) * M_PI * 2; // rand() * 2 * M_PI;
+
+            sats[i].propagate(state[i], 0, true);
 
             // velocity updated everytime distance is updated.
         }
@@ -84,30 +89,32 @@ struct SatelliteSimulator_GPU
             std::cerr << "Couldn't copy" << std::endl;
         }
 
-        positions.setZero_device();
+        if (!positions.copy_to_device())
+        {
+            std::cerr << "Couldn't copy positions" << std::endl;
+        }
 
         colors = Eigen::MatrixXf::Random(3, width * height);
 
         // ? std::cin.get();
     }
 
-    void stepOne(float delta_t)
+    virtual void propagate(double delta_t)
     {
         dim3 threadsPerBlock(32, 32);
         dim3 numBlocks(width / threadsPerBlock.x + 1, height / threadsPerBlock.y + 1);
-        step<<<numBlocks, threadsPerBlock>>>(satellites.device_ptr, positions.device_ptr, width, height, delta_t);
-        // cudaDeviceSynchronize();
+        step<<<numBlocks, threadsPerBlock>>>(satellites.device_ptr, positions.device_ptr, width, height, speed * delta_t);
+        cudaDeviceSynchronize();
         CHECK_LAST_CUDA_ERROR();
-        positions.copy_to_host();
     }
 
-    void draw()
+    virtual void draw(int point_size, int num_satellites)
     {
-        double scale = radius_of_earth_m;
-        glPointSize(20);
+        double scale = radius_of_earth_km;
+        glPointSize(point_size);
         glBegin(GL_POINTS);
 
-        for (int i = 0; i < width * height; i++)
+        for (int i = 0; i < std::min(num_satellites,int(width * height)); i++)
         {
             const auto &pos = positions.host_ptr[i];
             const Eigen::Matrix<float, 3, 1> &color = colors.col(i);
@@ -119,8 +126,8 @@ struct SatelliteSimulator_GPU
     }
 
     size_t width, height;
-    MemoryBlock<Orbit_f> satellites;
-    MemoryBlock<Result> positions;
+    MemoryBlock<Orbit> satellites;
+    MemoryBlock<Position> positions;
 
     Eigen::Matrix<float, 3, -1> colors;
 };
@@ -132,46 +139,8 @@ int main(int argc, char **argv)
     size_t height = atoi(argv[2]);
 
     SatelliteSimulator_GPU sim(width, height);
+    Viewer viewer(&sim);
 
-    std::cerr << "Done" << std::endl;
-
-    pangolin::CreateWindowAndBind("Main", 640, 480);
-    glEnable(GL_DEPTH_TEST);
-
-    // Define Projection and initial ModelView matrix
-    pangolin::OpenGlRenderState s_cam(
-        pangolin::ProjectionMatrix(640, 480, 420, 420, 320, 240, 0.2, 100),
-        pangolin::ModelViewLookAt(-2, 2, -2, 0, 0, 0, pangolin::AxisY));
-
-    // Create Interactive View in window
-    pangolin::Handler3D handler(s_cam);
-    pangolin::View &d_cam = pangolin::CreateDisplay()
-                                .SetBounds(0.0, 1.0, 0.0, 1.0, -640.0f / 480.0f)
-                                .SetHandler(&handler);
-
-    Timer stepTimer("stepTimer");
-    every(10, [&]()
-          {          
-            stepTimer.tic();
-            sim.stepOne(1);
-            stepTimer.toc();
-            stepTimer.print(); });
-
-    while (!pangolin::ShouldQuit())
-    {
-        // Clear screen and activate view to render into
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        d_cam.Activate(s_cam);
-
-        sim.draw();
-        // Render OpenGL Cube
-        // pangolin::glDrawColouredCube();
-        pangolin::glDrawAxis(1.0);
-        pangolin::glDrawCircle(0, 0, 1);
-
-        // Swap frames and Process Events
-        pangolin::FinishFrame();
-    }
-
+    viewer.mainLoop();
     return 0;
 }

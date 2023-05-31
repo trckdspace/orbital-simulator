@@ -30,25 +30,46 @@ void checkLast(const char *const file, const int line)
     }
 }
 
-template <typename Scalar>
-struct Orbit
-{
-    Scalar u0, u1, u2;
-    Scalar v0, v1, v2;
-    Scalar t;
-    Scalar v;
-};
-
-typedef Orbit<float> Orbit_f;
-
-struct Result
+struct Position
 {
     float x, y, z;
 };
 
+struct Orbit
+{
+    typedef double Scalar;
+
+    Scalar u0, u1, u2;
+    Scalar v0, v1, v2;
+    Scalar c0, c1, c2;
+    double rate_multiplier;
+    Scalar t;
+
+__host__ __device__ 
+    void propagate(Position& p, Orbit::Scalar delta_t, bool is_init = false)
+    {
+        if (!is_init)
+        {
+            Scalar r_2 = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
+            t = t + 100* delta_t * (rate_multiplier / (r_2 * r_2));
+        }
+
+        Scalar st = std::sin(t);
+        Scalar ct = std::cos(t);
+
+        p.x = ct * u0 + st * v0 + c0;
+        p.y = ct * u1 + st * v1 + c1;
+        p.z = ct * u2 + st * v2 + c2;
+    }
+};
+
+typedef Orbit Orbit;
+
+
+
 __global__ void step(
-    Orbit_f *satellites,
-    Result *positions,
+    Orbit *satellites,
+    Position *positions,
     int width,
     int height,
     double delta_t)
@@ -59,32 +80,13 @@ __global__ void step(
     auto at = [width](int x, int y)
     { return y * width + x; };
 
-    if (x < 0 or x >= width)
+    if (x < 0 or x > width)
         return;
-    if (y < 0 or y >= height)
+    if (y < 0 or y > height)
         return;
 
     int idx = at(x, y);
-    Orbit_f &sat = satellites[idx];
-    Result &res = positions[idx];
-
-    // https: // www.physicsclassroom.com/class/circles/Lesson-4/Mathematics-of-Satellite-Motion
-    // http: // www.physicsclassroom.com/Class/circles/u6l4b5.gif v = sqrt(G*M/R)
-    // gravitational constant *mass of Earth = 3.98601877 × 10^14 m^3 / s^2
-
-    sat.t += delta_t;
-
-    float st = std::sin(sat.t * sat.v);
-    float ct = std::cos(sat.t * sat.v);
-
-    float px = st * sat.u0 + ct * sat.v0;
-    float py = st * sat.u1 + ct * sat.v1;
-    float pz = st * sat.u2 + ct * sat.v2;
-
-    float R_m = std::sqrt(px * px + py * py + pz * pz);
-    sat.v = (std::sqrt(3.98601877e14 / (R_m))) / R_m;
-
-    res.x = px;
-    res.y = py;
-    res.z = pz;
+    Orbit &sat = satellites[idx];
+    Position &pos = positions[idx];
+    sat.propagate(pos, delta_t, false);
 }
