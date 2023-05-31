@@ -51,7 +51,7 @@ __host__ __device__
         if (!is_init)
         {
             Scalar r_2 = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
-            t = t + 100* delta_t * (rate_multiplier / (r_2 * r_2));
+            t += delta_t * (rate_multiplier / (r_2 * r_2));
         }
 
         Scalar st = std::sin(t);

@@ -106,6 +106,7 @@ struct SatelliteSimulator_GPU : BaseSimulator
         step<<<numBlocks, threadsPerBlock>>>(satellites.device_ptr, positions.device_ptr, width, height, speed * delta_t);
         cudaDeviceSynchronize();
         CHECK_LAST_CUDA_ERROR();
+        positions.copy_to_host();
     }
 
     virtual void draw(int point_size, int num_satellites)

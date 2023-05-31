@@ -53,7 +53,7 @@ struct Viewer
         every(10, [&]()
               {
               stepTimer.tic();
-              _sim->propagate(100);
+              _sim->propagate(0.1);
               stepTimer.toc(); });
 
         const int UI_WIDTH = 20 * pangolin::default_font().MaxWidth();
