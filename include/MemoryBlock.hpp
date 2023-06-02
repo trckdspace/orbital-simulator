@@ -38,6 +38,7 @@ struct MemoryBlock
     bool allocate_on_device()
     {
         cudaError_t err = cudaMalloc((void **)&device_ptr, width * height * sizeof(Scalar));
+        // cudaError_t err = cudaMallocManaged((void **)&device_ptr, width * height * sizeof(Scalar));
         cudaMemset(device_ptr, 0x00, width * height * sizeof(Scalar));
         return err == cudaError_t::cudaSuccess;
     }
@@ -85,5 +86,43 @@ struct MemoryBlock
             delete[] host_ptr;
             host_ptr = nullptr;
         }
+    }
+};
+
+template <typename Scalar>
+
+struct MemoryBlockManaged
+{
+
+    size_t width;
+    size_t height;
+    size_t size;
+    Scalar *device_ptr = nullptr;
+    Scalar *host_ptr = nullptr;
+
+    bool ownsHostData = false;
+
+    MemoryBlockManaged(size_t w = 1, size_t h = 1) : width(w), height(h), size(w * h), ownsHostData(true)
+    {
+        this->allocate(width, height);
+        this->host_ptr = this->device_ptr;
+    }
+
+    bool allocate(int width, int height)
+    {
+        // cudaError_t err = cudaMalloc((void **)&device_ptr, width * height * sizeof(Scalar));
+        cudaError_t err = cudaMallocManaged((void **)&device_ptr, width * height * sizeof(Scalar));
+        cudaMemset(device_ptr, 0x00, width * height * sizeof(Scalar));
+        return err == cudaError_t::cudaSuccess;
+    }
+
+    void setZero_device()
+    {
+        cudaMemset(device_ptr, 0x00, width * height * sizeof(Scalar));
+    }
+
+    ~MemoryBlockManaged()
+    {
+        cudaFree(device_ptr);
     }
 };

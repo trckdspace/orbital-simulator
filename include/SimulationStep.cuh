@@ -45,8 +45,7 @@ struct Orbit
     double rate_multiplier;
     Scalar t;
 
-__host__ __device__ 
-    void propagate(Position& p, Orbit::Scalar delta_t, bool is_init = false)
+    __host__ __device__ void propagate(Position &p, Orbit::Scalar delta_t, bool is_init = false)
     {
         if (!is_init)
         {
@@ -65,8 +64,6 @@ __host__ __device__
 
 typedef Orbit Orbit;
 
-
-
 __global__ void step(
     Orbit *satellites,
     Position *positions,
@@ -80,9 +77,9 @@ __global__ void step(
     auto at = [width](int x, int y)
     { return y * width + x; };
 
-    if (x < 0 or x > width)
+    if (x < 0 or x >= width)
         return;
-    if (y < 0 or y > height)
+    if (y < 0 or y >= height)
         return;
 
     int idx = at(x, y);

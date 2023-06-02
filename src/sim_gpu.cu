@@ -89,11 +89,6 @@ struct SatelliteSimulator_GPU : BaseSimulator
             std::cerr << "Couldn't copy" << std::endl;
         }
 
-        if (!positions.copy_to_device())
-        {
-            std::cerr << "Couldn't copy positions" << std::endl;
-        }
-
         colors = Eigen::MatrixXf::Random(3, width * height);
 
         // ? std::cin.get();
@@ -106,7 +101,7 @@ struct SatelliteSimulator_GPU : BaseSimulator
         step<<<numBlocks, threadsPerBlock>>>(satellites.device_ptr, positions.device_ptr, width, height, speed * delta_t);
         cudaDeviceSynchronize();
         CHECK_LAST_CUDA_ERROR();
-        positions.copy_to_host();
+        // positions.copy_to_host();
     }
 
     virtual void draw(int point_size, int num_satellites)
@@ -115,7 +110,7 @@ struct SatelliteSimulator_GPU : BaseSimulator
         glPointSize(point_size);
         glBegin(GL_POINTS);
 
-        for (int i = 0; i < std::min(num_satellites,int(width * height)); i++)
+        for (int i = 0; i < std::min(num_satellites, int(width * height)); i++)
         {
             const auto &pos = positions.host_ptr[i];
             const Eigen::Matrix<float, 3, 1> &color = colors.col(i);
@@ -128,7 +123,7 @@ struct SatelliteSimulator_GPU : BaseSimulator
 
     size_t width, height;
     MemoryBlock<Orbit> satellites;
-    MemoryBlock<Position> positions;
+    MemoryBlockManaged<Position> positions;
 
     Eigen::Matrix<float, 3, -1> colors;
 };
