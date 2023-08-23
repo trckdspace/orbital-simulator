@@ -22,3 +22,6 @@ target_link_libraries(sim_gpu pango_display pango_python)
 
 add_executable(sim_cpu src/sim_cpu.cpp)
 target_link_libraries(sim_cpu pango_display pango_python)
+
+add_executable(sim_cli src/sim_cli.cpp)
+target_link_libraries(sim_cli pango_display)

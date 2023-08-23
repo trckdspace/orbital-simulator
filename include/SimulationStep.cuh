@@ -44,6 +44,7 @@ struct Orbit
     Scalar c0, c1, c2;
     double rate_multiplier;
     Scalar t;
+    uint64_t grid_location;
 
     __host__ __device__ void propagate(Position &p, Orbit::Scalar delta_t, bool is_init = false)
     {
@@ -59,6 +60,12 @@ struct Orbit
         p.x = ct * u0 + st * v0 + c0;
         p.y = ct * u1 + st * v1 + c1;
         p.z = ct * u2 + st * v2 + c2;
+
+        uint64_t x = int(std::abs(p.x)) / 10;
+        uint64_t y = int(std::abs(p.y)) / 10;
+        uint64_t z = int(std::abs(p.z)) / 10;
+
+        grid_location = (int(x) / 10) << 32 + (int(y) / 10) << 16 + (int(z) / 10);
     }
 };
 

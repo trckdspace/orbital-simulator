@@ -69,6 +69,9 @@ struct Simulation : BaseSimulator
 
     virtual void propagate(double dt)
     {
+        static double clock_time = 0;
+        clock_time += dt;
+
         t += speed * dt * rate_multiplier / (state).colwise().squaredNorm().array();
         state = C + Eigen::cos(t).replicate(DIM, 1) * U + Eigen::sin(t).replicate(DIM, 1) * V;
 
@@ -79,25 +82,24 @@ struct Simulation : BaseSimulator
             oh_no_these_collided.clear();
             for (auto c : collisions)
             {
-                std::cerr << c.first << " - " << c.second << std::endl;
-
+                std::cerr << clock_time << " " << c.first << " " << c.second << std::endl;
                 std::cerr << state.col(c.first).transpose() << std::endl;
                 std::cerr << state.col(c.second).transpose() << std::endl;
 
-                std::cerr << " U " << U.col(c.first).transpose() << std::endl
-                          << " V " << V.col(c.first).transpose() << std::endl
-                          << " C " << C.col(c.first).transpose() << std::endl
-                          << " t " << t.col(c.first) << std::endl;
+                // std::cerr << " U " << U.col(c.first).transpose() << std::endl
+                //           << " V " << V.col(c.first).transpose() << std::endl
+                //           << " C " << C.col(c.first).transpose() << std::endl
+                //           << " t " << t.col(c.first) << std::endl;
 
-                std::cerr << " U " << U.col(c.second).transpose() << std::endl
-                          << " V " << V.col(c.second).transpose() << std::endl
-                          << " C " << C.col(c.second).transpose() << std::endl
-                          << " t " << t.col(c.second) << std::endl;
+                // std::cerr << " U " << U.col(c.second).transpose() << std::endl
+                //           << " V " << V.col(c.second).transpose() << std::endl
+                //           << " C " << C.col(c.second).transpose() << std::endl
+                //           << " t " << t.col(c.second) << std::endl;
 
                 oh_no_these_collided.push_back(c.first);
                 oh_no_these_collided.push_back(c.second);
             }
-            std::cerr << "//////////////////" << std::endl;
+            // std::cerr << "//////////////////" << std::endl;
         }
 
         // std::cerr << state.rowwise().minCoeff() << std::endl;

@@ -61,10 +61,12 @@ struct Viewer
             .SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(UI_WIDTH));
 
         pangolin::Var<int> point_size("ui.Point_size", 1, 1, 10);
-        pangolin::Var<bool> draw_lines("ui.Draw_lines", false, true);
-        pangolin::Var<int> speed("ui.speed", 1, 1, 100);
-        pangolin::Var<int> num_satellites("ui.count", 1, 1, _sim->numberOfOrbits);
         pangolin::Var<float> FPS("ui.FPS", 0, 0, 1000);
+
+        pangolin::Var<bool> do_draw("ui.Draw", false, true);
+        pangolin::Var<bool> draw_lines("ui.Draw.Draw_lines", false, true);
+        pangolin::Var<int> speed("ui.Draw.speed", 1, 1, 100);
+        pangolin::Var<int> num_satellites("ui.Draw.count", 1, 1, _sim->numberOfOrbits);
 
         while (!pangolin::ShouldQuit())
         {
@@ -76,7 +78,8 @@ struct Viewer
             _sim->speed = speed;
             FPS = 1. / stepTimer.mean();
 
-            _sim->draw(point_size, num_satellites);
+            if (do_draw)
+                _sim->draw(point_size, num_satellites);
             //  Render OpenGL Cube
             //  pangolin::glDrawColouredCube();
             glColor3f(0.5, 0.5, 0.5);
