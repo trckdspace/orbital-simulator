@@ -13,8 +13,13 @@ find_package(Pangolin 0.8 REQUIRED)
 
 include_directories( 
     ${PROJECT_SOURCE_DIR}/include
+    ${PROJECT_SOURCE_DIR}/extern/perturb/include
     /usr/include/eigen3
     ${Pangolin_INCLUDE_DIRS}
+)
+
+link_directories(
+    ${PROJECT_SOURCE_DIR}/extern/perturb/lib
 )
 
 add_executable(sim_gpu src/sim_gpu.cu)
@@ -23,5 +28,10 @@ target_link_libraries(sim_gpu pango_display pango_python)
 add_executable(sim_cpu src/sim_cpu.cpp)
 target_link_libraries(sim_cpu pango_display pango_python)
 
-add_executable(sim_cli src/sim_cli.cpp)
-target_link_libraries(sim_cli pango_display)
+add_executable(sim_sgp4 src/sim_sgp4.cpp)
+target_link_libraries(sim_sgp4 pango_display pango_python perturb)
+
+
+
+# add_executable(sim_cli src/sim_cli.cpp)
+# target_link_libraries(sim_cli pango_display)

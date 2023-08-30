@@ -2,6 +2,7 @@
 
 #include <thread>
 #include <chrono>
+#include <functional>
 
 void every(int interval_milliseconds, const std::function<void(void)> &f)
 {
@@ -25,4 +26,5 @@ struct BaseSimulator
     bool draw_lines = false;
     float speed = 1;
     int numberOfOrbits;
+    const float radius_of_earth_km = 6378.1;
 };
