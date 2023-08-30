@@ -17,7 +17,6 @@ template <int DIM = 3>
 struct Simulation : BaseSimulator
 {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
-    const float radius_of_earth_km = 6378.1;
 
     typedef Eigen::Array<float, -1, -1> MatrixType;
 
