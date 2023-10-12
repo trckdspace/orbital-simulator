@@ -3,6 +3,7 @@
 #include <thread>
 #include <chrono>
 #include <functional>
+#include <string>
 
 void every(int interval_milliseconds, const std::function<void(void)> &f)
 {
@@ -22,6 +23,7 @@ struct BaseSimulator
     BaseSimulator(int N) : numberOfOrbits(N) {}
     virtual void draw(int point_size, int num_satellites) = 0;
     virtual void propagate(double delta_t) = 0;
+    virtual std::string getTime() = 0;
 
     bool draw_lines = false;
     float speed = 1;
